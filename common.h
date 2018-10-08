@@ -15,7 +15,7 @@ typedef unsigned long long ull;
 #define MAX_URL_LEN (8)
 #define MIN_URL_LEN (4)
 
-#define SHARD_SIZE (128)
+#define SHARD_SIZE (1000)
 
 
 
