@@ -1,6 +1,6 @@
 all: regen_data solve_topk mem-stat.o
 
-CC = g++
+CC = g++ -fopenmp
 CFLAGS = -std=c++11 -O3
 #LDFLAGS = -lprofiler
 
@@ -12,7 +12,7 @@ regen_data: gen_data.cpp common.h
 	$(CC) $(CFLAGS) $(DEBUG) $< -o $@
 
 solve_topk: topk.cpp mem-stat.o common.h
-	$(CC) $(CFLAGS) $(DEBUG) topk.cpp -o $@ mem-stat.o $(LDFLAGS)
+	$(CC) $(CFLAGS) $(DEBUG) -I/home/sirius/repos/libcuckoo/install/include topk.cpp -o $@ mem-stat.o $(LDFLAGS)
 
 
 

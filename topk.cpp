@@ -10,8 +10,14 @@
 #include <iostream>
 #include <algorithm>
 
+#include <libcuckoo/cuckoohash_map.hh>
+//#define CUCKOO_HASH
 
 //#include <thread>
+
+typedef cuckoohash_map<std::string, int> cuckoo_table;
+#define THREAD_NUM 4
+#define BATCH_SIZE (1024*128)
 //#include <map>
 
 //#include <gperftools/profiler.h>
@@ -94,14 +100,19 @@ static inline int batch_fscanf(FILE *filp, char *buf[], int MAX_ROW){
 
 
 static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, int k){
-#define BATCH_SIZE (1024*4)
 	FILE **sub_filp = new FILE*[SHARD_SIZE];
 	char *sub_path = new char[1024];
 	//char *buf = new char[MAX_URL_LEN];
 	char **buf = new  char*[BATCH_SIZE];
 	for(int i = 0; i < BATCH_SIZE; i++)
 		buf[i] = new char[MAX_URL_LEN];
+#ifdef CUCKOO_HASH
+	cuckoo_table str2cnt;
+	//str2cnt.reserve(MIN_FILE_SIZE/1024/16);
+	auto updatefn = [](int &num) { ++num; };
+#else
 	unordered_map<string, int> str2cnt;
+#endif
 	
 	double hash_cost = 0;
 	priority_queue<str_cnt_pair_t> cans_q; // candidate_priority_queue
@@ -110,9 +121,34 @@ static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, int k){
 		sub_filp[i] = fopen(sub_path, "r");
 		assert(sub_filp[i]);
 		str2cnt.clear();
+#ifdef CUCKOO_HASH
 		int rows = 0;
 		while((rows=batch_fscanf(sub_filp[i], buf, BATCH_SIZE))){
 			gettimeofday(&ts, NULL);
+#pragma omp parallel for
+			for(int r = 0; r < rows; r++){
+				str2cnt.upsert(string(buf[r]), updatefn, 1);
+			}
+			gettimeofday(&te, NULL);
+			hash_cost += TIME(ts, te);
+		}
+		gettimeofday(&ts, NULL);
+		
+		auto lt = str2cnt.lock_table();
+		for(const auto& it: lt){
+			if(cans_q.size() < k) cans_q.push(str_cnt_pair_t(it.second, it.first));
+			else if(k > 0 && cans_q.top().cnt < it.second){
+				cans_q.pop();
+				cans_q.push(str_cnt_pair_t(it.second, it.first));
+			}
+		}
+		gettimeofday(&te, NULL);
+		hash_cost += TIME(ts, te);
+#else
+		int rows = 0;
+		while((rows=batch_fscanf(sub_filp[i], buf, BATCH_SIZE))){
+			gettimeofday(&ts, NULL);
+
 			for(int r = 0; r < rows; r++){
 				str2cnt[string(buf[r])]++;
 			}
@@ -129,6 +165,7 @@ static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, int k){
 		}
 		gettimeofday(&te, NULL);
 		hash_cost += TIME(ts, te);
+#endif
 		/*
 		   double load_factor = str2cnt.load_factor();
 		   size_t size = str2cnt.size();
