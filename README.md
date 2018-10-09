@@ -74,12 +74,12 @@ For 1GB data
 The output of my solution on 10GB workload is as following:
 
 When concurrent hash_map is used:
-![concurrent](figures/10GB-smp.png)
+![concurrent](figures/10G-smp.png)
 
 
 when built-in unordered_map is used:
 
-![builtin](figures/10GB-builtin.png)
+![builtin](figures/10G-builtin.png)
 
 
 ## Workload
