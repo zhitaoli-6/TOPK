@@ -12,7 +12,6 @@ So the code is similar as following:
 ```
 
 ### Optimization
-
 I try many strategies to improve performance, of which two strategies work very well:
 1. **g++ compiler optimization level**, g++ -O2 or g++ -O3. It seems that unordered_map runs much faster when -O2 or -O3 is enabled.
 2. **concurrent hash_map**: [cuckoohash_map](https://github.com/efficient/libcuckoo) replaces built-in [unordered_map](http://www.cplusplus.com/reference/unordered_map/unordered_map/).
@@ -28,6 +27,25 @@ In fact, hash_map operations and read 1000 shards(10GB read) can run in pipeline
 3. process current shard
 ```
 Potentially 50s of  hash_map cost can be reduced in 10GB task, leading to 10% improvement. I leave this potential strategy as future work.
+
+### HOW TO RUN
+
+If no input is given, we need generate data ourselves:
+```
+cd /path/to/TOPK
+make
+./solve 1 10
+```
+
+### Black-box bug test
+
+To check fast-topk's correctness, I generate different scales data and implement a naive solution as the reference.The reference solution load whole input data into memory directly and calculate topk. Then two topk results are compared to prove correctness.
+
+Fast-topk passes my black-box tests successfully.
+
+### CONSTRAINS
+
+Because no url data given, I generate the 1GB, 10GB data to tune performance and small-case to check its correctness.
 
 ## V1: on 6th October
 ### Evaluation

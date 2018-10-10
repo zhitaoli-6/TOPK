@@ -25,11 +25,14 @@ void gen_data(const char *path, const ull size){
 	delete []buf;
 	fclose(filp);
 	printf("data file total %llu bytes\n", file_size);
+	printf("-----------------------\n");
 }
 
+/*
 int main(){
 	//printf("%d\n", RAND_MAX);
 	gen_data("/home/sirius/repos/test/pingcap/input/url10G.in", 1ull*10*MIN_FILE_SIZE);
 	//gen_data("./input/tmp.in", 1024);
 	return 0;
 }
+*/
