@@ -1,3 +1,11 @@
+/*
+ * topk.cpp - the main algorithm to solve topk hottest words in big file with size 10GB or 100GB.
+ * 1. split raw big file into 1000 shards
+ * 2. for each shard, hash_map + min_heap
+ * 3. finally, min_heap with size K is the topk hottest.
+ */
+
+
 #include "common.h"
 
 #include <unistd.h>
@@ -10,7 +18,6 @@
 #include <algorithm>
 
 #include <libcuckoo/cuckoohash_map.hh>
-//#define CUCKOO_HASH
 
 //#include <thread>
 
@@ -53,7 +60,7 @@ static int split_data(const char *path){
 	}
 
 	//double hash_cost = 0;
-	char *buf = new char[MAX_URL_LEN];
+	char *buf = new char[REAL_MAX_URL_LEN];
 	while(fscanf(raw_filp, "%s", buf) != EOF){
 		// split each url according to its hash_code
 		int shard = calcu_hash(buf) % SHARD_SIZE;
@@ -86,13 +93,18 @@ static inline int batch_fscanf(FILE *filp, char *buf[], int MAX_ROW){
 
 
 
-static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, const int k){
+static int get_topk(const char *path, const int mode, vector<str_cnt_pair_t> &topk_vec, const int k){
 	FILE **sub_filp = new FILE*[SHARD_SIZE];
 	char *sub_path = new char[1024];
 	//char *buf = new char[MAX_URL_LEN];
-	char **buf = new  char*[BATCH_SIZE];
-	for(int i = 0; i < BATCH_SIZE; i++)
-		buf[i] = new char[MAX_URL_LEN];
+
+	// if get_topk run on real_url workload
+	int _batch_size = (mode == 1? 1024*8:BATCH_SIZE);
+	int _max_file_size = (mode == 1? REAL_MAX_URL_LEN: MAX_URL_LEN);
+
+	char **buf = new  char*[_batch_size];
+	for(int i = 0; i < _batch_size; i++)
+		buf[i] = new char[_max_file_size];
 	/* 
 	 * Priority_queue(Min_heap) with size k  is used to maintain topk most frequent urls.
 	 * The time complexity is O(N*logK), where N is the number of elements
@@ -116,7 +128,7 @@ static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, const in
 		str2cnt.clear();
 #ifdef CUCKOO_HASH
 		int rows = 0;
-		while((rows=batch_fscanf(sub_filp[i], buf, BATCH_SIZE))){
+		while((rows=batch_fscanf(sub_filp[i], buf, _batch_size))){
 			gettimeofday(&ts, NULL);
 #pragma omp parallel for
 			for(int r = 0; r < rows; r++){
@@ -145,7 +157,7 @@ static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, const in
 		hash_cost += TIME(ts, te);
 #else
 		int rows = 0;
-		while((rows=batch_fscanf(sub_filp[i], buf, BATCH_SIZE))){
+		while((rows=batch_fscanf(sub_filp[i], buf, _batch_size))){
 			gettimeofday(&ts, NULL);
 			for(int r = 0; r < rows; r++){
 				str2cnt[string(buf[r])]++;
@@ -172,6 +184,7 @@ static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, const in
 		   printf("sub_path str2cnt factor %.2f, size %lu,  bucket %lu\n", load_factor, size, bucket_count);
 		   */
 		fclose(sub_filp[i]);
+		//printf("end process shard %s\n", sub_path);
 	}
 #ifdef DEBUG
 	printf("%s: hash_cost %.2fs\n", __func__, hash_cost);
@@ -188,24 +201,25 @@ static int get_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, const in
 	//printf("topk solution find %lu entry, %lu\n", topk_vec.size(), cans_q.size());
 	delete []sub_filp;
 	delete []sub_path;
-	for(int i = 0; i < BATCH_SIZE; i++)
+	for(int i = 0; i < _batch_size; i++)
 		delete []buf[i];
 	delete buf;
 	return 0;
 }
 
 
-int  solve_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, int k){
+int  solve_topk(const char *path, const int mode, vector<str_cnt_pair_t> &topk_vec, int k){
 	struct timeval t1, t2;
 	int ret = 0;
 	gettimeofday(&t1, NULL);
 	if((ret=split_data(path))) return ret;
 	gettimeofday(&t2, NULL);
+	printf("split data finish------------------\n");
 
 	double split_cost = TIME(t1, t2);
 
 	//ProfilerStart("gperftools.topk");
-	get_topk(path, topk_vec, k);
+	get_topk(path, mode, topk_vec, k);
 	//ProfilerStop();
 
 	//reverse(topk_vec.begin(), topk_vec.end());

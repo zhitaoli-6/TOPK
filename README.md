@@ -1,4 +1,4 @@
-# TOPK
+# TOPK: an efficient solution to find topk hot items from a big input source
 
 ## SUMMARY
 
@@ -20,32 +20,64 @@ Currently, for 10GB URL data(100GB too slow to run on my local machine), 100MB a
 1. 450s read/write file. I think it is reasonable becuase 20GB read and 10GB write is necessary.
 2. 50s hash_map cost.
 
-In fact, hash_map operations and read 1000 shards(10GB read) can run in pipeline:
-```
-1. wait for the end of aio to read current shard into memory
-2. issue asynchronous read of next shard
-3. process current shard
-```
-Potentially 50s of  hash_map cost can be reduced in 10GB task, leading to 10% improvement. I leave this potential strategy as future work.
+
 
 ### HOW TO RUN
 
 If no input is given, we need generate data ourselves:
 ```
 cd /path/to/TOPK
-make
-./solve 1 10
+make clean && make
+./solve_topk 1 0 10
 ```
+
+Solve_topk need parameters:
+```
+<gen>: whether to generate input. 0:no, 1:yes
+<real_url>: whether url len:60-120. 0:no, 1:yes
+<scale>: workload, 1:1GB, 10:10GB
+```
+
 
 ### Black-box bug test
 
-To check fast-topk's correctness, I generate different scales data and implement a naive solution as the reference.The reference solution load whole input data into memory directly and calculate topk. Then two topk results are compared to prove correctness.
+To check fast-topk's correctness, workloads of different scales are generated and I implement a naive solution as the reference. The reference solution assumes memory resource is not limited and uses hash_map to record count of every url and uses min_heap to get topk. 
 
-Fast-topk passes my black-box tests successfully.
+We call naive solution as ref-topk and above topk with memory limited as fast-topk.
+
+Then we run ref-topk and fast-top on different workloads and their results are compared to prove correctness.
+
+Finally, fast-topk passes my black-box tests successfully.
 
 ### CONSTRAINS
 
-Because no url data given, I generate the 1GB, 10GB data to tune performance and small-case to check its correctness.
+Because no real input is given, I generate the 1GB, 10GB data to tune performance and different scales workloads to check its correctness.
+
+### FUTURE WORK
+
+#### Pipeline hash_map with disk read of each shard
+In fact, hash_map operations and read 1000 shards(10GB read) can run in pipeline:
+```
+1. wait for the end of aio to read current shard into memory
+2. issue asynchronous read of next shard
+3. process current shard
+
+```
+Potentially 50s of  hash_map cost can be reduced in 10GB task, leading to 10% improvement. I leave this potential strategy as future work.
+
+#### Approximate solutions
+There are many research papers that focus on optimize the performance of topk problems. Their ideas are based on that **accurate topk is not necessary and approximate topk is acceptable for many industry situations**.
+
+Traditional solutions for finding top-k hot items can be divided into two categories: sketch-based and counter-based.
+
+1. Sketch-based: Count-min sketch and the Cound sketch.
+2. Counter-based: Space-saving, Frequent, Lossy counting
+
+These approximate solutions can achieve great gain in performance.
+You can find more information in recent paper named [SSS](http://net.pku.edu.cn/~yangtong/uploads/SSS-camera-ready.pdf), and I leave approximate solution of topk as future work here.
+
+
+
 
 ## V1: on 6th October
 ### Evaluation
@@ -66,10 +98,10 @@ For 1GB data
 - 10s read 1000 shards
 - 20s: hash_map operations
 
-2. For 10GB data, total 660s:
-- 322s to split
-- 120s to read shards
-- 220s: hash_map opeations
+2. For 10GB data, total 720s:
+- 340s to split
+- 130s to read shards
+- 250s: hash_map opeations
 
 ### Failed strategies
 
@@ -84,10 +116,10 @@ For 1GB data
 - 10s read 1000 shards
 - 8s hash_map operations
 
-2. For 10GB URL, total 500s:
-- 325s to split
+2. For 10GB URL, total 505s:
+- 330s to split
 - 125s read shards
-- 45s: hash_map operations, **5X** SPEEDUP(8 threads used)
+- 50s: hash_map operations, **5X** SPEEDUP(8 threads used)
 
 The output of my solution on 10GB workload is as following:
 
@@ -109,6 +141,15 @@ Define MIN_URL_LEN and MAX_URL_LEN
 RAND() to generate the count of rows according to average length of every url
 RAND() to generate urls(made up of characters from 'a' to 'z') of each row
 ```
+
+### TASK1
+The length of each url ranges from [4,8), and this workload is dense(An url can occurs many times).
+
+### TASK2
+
+The length of each url ranges from [60, 100), and this workload is very sparse(Nearly all urls only occur only once).
+
+
 ## Tools used
 
 1. linux perf

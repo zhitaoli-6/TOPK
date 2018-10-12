@@ -1,3 +1,11 @@
+/*
+ * self_test.cpp: black-box test for topk solution, which we call fast-topk.
+ *
+ * Simply, naive solution, which we call ref-topk, assumes memory is not limited and uses hash_map to calculate the number of every item.
+ * Then, many workloads of different scales are generated. We run two fast-topk and ref-topk, then results are compared to make sure they are consistent with each other.
+ */
+
+
 #include "common.h"
 
 #include <thread>
@@ -13,7 +21,7 @@ extern size_t getPeakRSS();
 extern size_t getCurrentRSS();
 
 extern void gen_data(const char *path, const ull size);
-extern int  solve_topk(const char *path, vector<str_cnt_pair_t> &topk_vec, int k);
+extern int  solve_topk(const char *path, const int mode, vector<str_cnt_pair_t> &topk_vec, int k);
 
 #define MAX_TEST_ROW 1000000
 
@@ -81,7 +89,7 @@ int main(int argc, char *argv[]){
 		write_to_file(path, row);
 		vector<str_cnt_pair_t> topk_vec;
 		vector<str_cnt_pair_t> all_s2c;
-		if(solve_topk(path, topk_vec, k) == 0){
+		if(solve_topk(path, 0, topk_vec, k) == 0){
 			//printf("solution runs ok on rows %d\n", row);
 
 

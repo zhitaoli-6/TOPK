@@ -14,15 +14,18 @@ typedef unsigned long long ull;
 
 
 #define DEBUG
-#define SHOW_TOPK
 
 #define MIN_FILE_SIZE (1<<30)
 
 #define MAX_URL_LEN (8)
 #define MIN_URL_LEN (4)
+#define REAL_MAX_URL_LEN (100)
+#define REAL_MIN_URL_LEN (60)
 
 #define SHARD_SIZE (1000)
 
+// used in fast-topk algorithm
+#define CUCKOO_HASH
 #define THREAD_NUM 4
 #define BATCH_SIZE (1024*128)
 
