@@ -20,6 +20,38 @@ Currently, for 10GB URL data(100GB too slow to run on my local machine), 100MB a
 1. 450s read/write file. I think it is reasonable becuase 20GB read and 10GB write is necessary.
 2. 50s hash_map cost.
 
+### FUTURE WORK
+
+#### Pipeline(Parallelism)
+
+##### Step1: hash code calculation & disk read of raw input
+
+```
+1. disk read
+2. hash code calculation
+3. disk write
+```
+The strategy can be implemented in Concurrent Queue with producers and consumers.
+
+##### Step2: hash_map operations & read 1000 shards(10GB read)
+```
+1. wait for the end of aio to read current shard into memory
+2. issue asynchronous read of next shard
+3. process current shard
+```
+Potentially 50s of  hash_map cost can be reduced in 10GB task, leading to 10% improvement. I leave this potential strategy as future work.
+
+#### Approximate solutions
+There are many research papers that focus on optimize the performance of topk problems. Their ideas are based on that **accurate topk is not necessary and approximate topk is acceptable for many industry situations**.
+
+Traditional solutions for finding top-k hot items can be divided into two categories: sketch-based and counter-based.
+
+1. Sketch-based: Count-min sketch and the Cound sketch.
+2. Counter-based: Space-saving, Frequent, Lossy counting
+
+These approximate solutions can achieve great gain in performance.
+You can find more information in recent paper named [SSS](http://net.pku.edu.cn/~yangtong/uploads/SSS-camera-ready.pdf), and I leave approximate solution of topk as future work here.
+
 
 
 ### HOW TO RUN
@@ -49,32 +81,9 @@ Then we run ref-topk and fast-top on different workloads and their results are c
 
 Finally, fast-topk passes my black-box tests successfully.
 
-### CONSTRAINS
+### CONSTRAINTS
 
 Because no real input is given, I generate the 1GB, 10GB data to tune performance and different scales workloads to check its correctness.
-
-### FUTURE WORK
-
-#### Pipeline hash_map with disk read of each shard
-In fact, hash_map operations and read 1000 shards(10GB read) can run in pipeline:
-```
-1. wait for the end of aio to read current shard into memory
-2. issue asynchronous read of next shard
-3. process current shard
-
-```
-Potentially 50s of  hash_map cost can be reduced in 10GB task, leading to 10% improvement. I leave this potential strategy as future work.
-
-#### Approximate solutions
-There are many research papers that focus on optimize the performance of topk problems. Their ideas are based on that **accurate topk is not necessary and approximate topk is acceptable for many industry situations**.
-
-Traditional solutions for finding top-k hot items can be divided into two categories: sketch-based and counter-based.
-
-1. Sketch-based: Count-min sketch and the Cound sketch.
-2. Counter-based: Space-saving, Frequent, Lossy counting
-
-These approximate solutions can achieve great gain in performance.
-You can find more information in recent paper named [SSS](http://net.pku.edu.cn/~yangtong/uploads/SSS-camera-ready.pdf), and I leave approximate solution of topk as future work here.
 
 
 
